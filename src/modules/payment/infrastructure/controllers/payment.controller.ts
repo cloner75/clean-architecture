@@ -2,9 +2,9 @@ import {
   Body,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
   Post,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -14,8 +14,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ChargeUserUseCase } from '../../application/charge-user.use-case';
-import { HttpExceptionBodyDto } from '../../../../shared/swagger/http-exception-body.dto';
-import { ChargeResponseDto } from '../dto/charge-response.dto';
+import { ApiErrorEnvelopeSwaggerDto } from '../../../../shared/http/api-envelope.swagger.dto';
+import { ChargeSuccessEnvelopeDto } from '../dto/charge-success-envelope.dto';
 import { ChargeDto } from '../dto/charge.dto';
 
 @ApiTags('payment')
@@ -28,15 +28,15 @@ export class PaymentController {
   @ApiOperation({ summary: 'Charge a user via the configured payment gateway' })
   @ApiOkResponse({
     description: 'Charge attempted; returns payment id and status.',
-    type: ChargeResponseDto,
+    type: ChargeSuccessEnvelopeDto,
   })
   @ApiNotFoundResponse({
     description: 'No user exists for the given user id.',
-    type: HttpExceptionBodyDto,
+    type: ApiErrorEnvelopeSwaggerDto,
   })
   @ApiBadRequestResponse({
     description: 'Validation failed (amount, currency code, etc.).',
-    type: HttpExceptionBodyDto,
+    type: ApiErrorEnvelopeSwaggerDto,
   })
   async charge(@Body() body: ChargeDto) {
     try {
@@ -47,7 +47,13 @@ export class PaymentController {
       });
     } catch (err) {
       if (err instanceof Error && err.message === 'USER_NOT_FOUND') {
-        throw new NotFoundException('User not found');
+        throw new HttpException(
+          {
+            message: 'User not found',
+            code: 'USER_NOT_FOUND',
+          },
+          HttpStatus.NOT_FOUND,
+        );
       }
       throw err;
     }

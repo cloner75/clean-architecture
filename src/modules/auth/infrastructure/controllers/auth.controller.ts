@@ -2,10 +2,9 @@ import {
   Body,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
   Post,
-  ConflictException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -19,9 +18,9 @@ import {
 import { RegisterUseCase } from '../../application/register.use-case';
 import { LoginUseCase } from '../../application/login.use-case';
 import { InvalidCredentialsError } from '../../domain/errors/auth.errors';
-import { HttpExceptionBodyDto } from '../../../../shared/swagger/http-exception-body.dto';
-import { LoginResponseDto } from '../dto/login-response.dto';
-import { RegisterResponseDto } from '../dto/register-response.dto';
+import { ApiErrorEnvelopeSwaggerDto } from '../../../../shared/http/api-envelope.swagger.dto';
+import { LoginSuccessEnvelopeDto } from '../dto/login-success-envelope.dto';
+import { RegisterSuccessEnvelopeDto } from '../dto/register-success-envelope.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 
@@ -36,16 +35,16 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Register a new user account' })
   @ApiCreatedResponse({
-    description: 'User created; returns the new user id.',
-    type: RegisterResponseDto,
+    description: 'User created.',
+    type: RegisterSuccessEnvelopeDto,
   })
   @ApiConflictResponse({
     description: 'Email is already registered.',
-    type: HttpExceptionBodyDto,
+    type: ApiErrorEnvelopeSwaggerDto,
   })
   @ApiBadRequestResponse({
     description: 'Validation failed (invalid email, password too short, etc.).',
-    type: HttpExceptionBodyDto,
+    type: ApiErrorEnvelopeSwaggerDto,
   })
   async register(@Body() body: RegisterDto) {
     try {
@@ -55,7 +54,13 @@ export class AuthController {
       });
     } catch (err) {
       if (err instanceof Error && err.message === 'USER_EMAIL_ALREADY_EXISTS') {
-        throw new ConflictException('Email is already registered');
+        throw new HttpException(
+          {
+            message: 'Email is already registered',
+            code: 'EMAIL_ALREADY_EXISTS',
+          },
+          HttpStatus.CONFLICT,
+        );
       }
       throw err;
     }
@@ -66,15 +71,15 @@ export class AuthController {
   @ApiOperation({ summary: 'Authenticate and obtain a JWT access token' })
   @ApiOkResponse({
     description: 'Credentials valid; JWT issued.',
-    type: LoginResponseDto,
+    type: LoginSuccessEnvelopeDto,
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid email or password.',
-    type: HttpExceptionBodyDto,
+    type: ApiErrorEnvelopeSwaggerDto,
   })
   @ApiBadRequestResponse({
     description: 'Validation failed.',
-    type: HttpExceptionBodyDto,
+    type: ApiErrorEnvelopeSwaggerDto,
   })
   async login(@Body() body: LoginDto) {
     try {
@@ -84,7 +89,13 @@ export class AuthController {
       });
     } catch (err) {
       if (err instanceof InvalidCredentialsError) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new HttpException(
+          {
+            message: 'Invalid credentials',
+            code: 'INVALID_CREDENTIALS',
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
       }
       throw err;
     }
